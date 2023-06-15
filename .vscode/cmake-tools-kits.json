@@ -1,0 +1,10 @@
+[
+    {
+        "name": "for oneDNN",
+        "environmentSetupScript": "/opt/intel/oneapi/setvars.sh",
+        "compilers":{
+            "C":"/opt/intel/oneapi/compiler/2023.1.0/linux/bin/icx",
+            "CXX":"/opt/intel/oneapi/compiler/2023.1.0/linux/bin/icpx"
+        }
+    }
+]
