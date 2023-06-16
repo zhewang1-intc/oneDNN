@@ -44,6 +44,10 @@ using namespace dnnl;
 using tag = memory::format_tag;
 using dt = memory::data_type;
 
+#define SRC_DT int8_t
+#define BIAS_DT uint16_t
+#define DST_DT uint16_t
+
 void matmul_example(dnnl::engine::kind engine_kind) {
 
     // Create execution dnnl::engine.
@@ -57,42 +61,48 @@ void matmul_example(dnnl::engine::kind engine_kind) {
             M = 128, K = 256, N = 512;
 
     // Source (src), weights, bias, and destination (dst) tensors dimensions.
-    memory::dims src_dims = {MB, M, K};
-    memory::dims weights_dims = {MB, K, N};
-    memory::dims bias_dims = {1, 1, N};
-    memory::dims dst_dims = {MB, M, N};
+    memory::dims src_dims = { M, K};
+    memory::dims weights_dims = { K, N};
+    memory::dims bias_dims = {1, N};
+    memory::dims dst_dims = { M, N};
+
+    //Prepare scale.
+    // const int src_mask = 2;
+    const int weight_mask = 2;
+    const int dst_mask = 0;
 
     // Allocate buffers.
-    std::vector<float> src_data(product(src_dims));
-    std::vector<float> weights_data(product(weights_dims));
-    std::vector<float> bias_data(product(bias_dims));
-    std::vector<float> dst_data(product(dst_dims));
+    std::vector<SRC_DT> src_data(product(src_dims));
+    std::vector<SRC_DT> weights_data(product(weights_dims));
+    std::vector<BIAS_DT> bias_data(product(bias_dims));
+    std::vector<DST_DT> dst_data(product(dst_dims));
 
     // Initialize src, weights, bias.
     std::generate(src_data.begin(), src_data.end(), []() {
-        static int i = 0;
-        return std::cos(i++ / 10.f);
+        static int i = 1;
+        return static_cast<SRC_DT>(i);
     });
     std::generate(weights_data.begin(), weights_data.end(), []() {
-        static int i = 0;
-        return std::sin(i++ * 2.f);
+        static int i = 2;
+        return static_cast<BIAS_DT>(i);
     });
     std::generate(bias_data.begin(), bias_data.end(), []() {
-        static int i = 0;
-        return std::tanh(float(i++));
+        static int i = 3;
+        return static_cast<DST_DT>(i);
     });
 
     // Create memory descriptors and memory objects for src, weights, bias, and
     // dst.
-    auto src_md = memory::desc(src_dims, dt::f32, tag::abc);
-    auto weights_md = memory::desc(weights_dims, dt::f32, tag::abc);
-    auto bias_md = memory::desc(bias_dims, dt::f32, tag::abc);
-    auto dst_md = memory::desc(dst_dims, dt::f32, tag::abc);
-
+    auto src_md = memory::desc(src_dims, dt::s8, tag::ab);
+    auto weights_md = memory::desc(weights_dims, dt::s8, tag::ab);
+    auto bias_md = memory::desc(bias_dims, dt::bf16, tag::ab);
+    auto dst_md = memory::desc(dst_dims, dt::bf16, tag::ab);
+    auto binary_add_md = memory::desc(src_dims, dt::s8, tag::ab);
     auto src_mem = memory(src_md, engine);
     auto weights_mem = memory(weights_md, engine);
     auto bias_mem = memory(bias_md, engine);
     auto dst_mem = memory(dst_md, engine);
+    auto binary_add_mem = memory(binary_add_md, engine);
 
     // Write data to memory object's handles.
     write_to_dnnl_memory(src_data.data(), src_mem);
@@ -103,9 +113,18 @@ void matmul_example(dnnl::engine::kind engine_kind) {
     const float alpha = 0.f;
     const float beta = 0.f;
     post_ops matmul_ops;
+    matmul_ops.append_binary(algorithm::binary_add, binary_add_md);
+    // matmul_ops.append_sum(2.f, 0, dnnl::memory::data_type::bf16);
     matmul_ops.append_eltwise(algorithm::eltwise_relu, alpha, beta);
     primitive_attr matmul_attr;
     matmul_attr.set_post_ops(matmul_ops);
+
+    // matmul_attr.set_scales_mask(DNNL_ARG_SRC, src_mask);
+    matmul_attr.set_scales_mask(DNNL_ARG_WEIGHTS, 1<<1);
+    auto src_scale_md = memory::desc({M}, dt::f32, tag::x);
+    auto wei_scale_md = memory::desc({N}, dt::f32, tag::x);
+    auto src_scale_mem = memory(src_scale_md, engine);
+    auto wei_scale_mem = memory(wei_scale_md, engine);
 
     // Create primitive descriptor.
     auto matmul_pd = matmul::primitive_desc(
@@ -120,6 +139,11 @@ void matmul_example(dnnl::engine::kind engine_kind) {
     matmul_args.insert({DNNL_ARG_WEIGHTS, weights_mem});
     matmul_args.insert({DNNL_ARG_BIAS, bias_mem});
     matmul_args.insert({DNNL_ARG_DST, dst_mem});
+    matmul_args.insert({DNNL_ARG_ATTR_MULTIPLE_POST_OP(0) | DNNL_ARG_SRC_1,
+            binary_add_mem});
+    // matmul_args.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_SRC, src_scale_mem});
+    matmul_args.insert(
+            {DNNL_ARG_ATTR_SCALES | DNNL_ARG_WEIGHTS, wei_scale_mem});
 
     // Primitive execution: matrix multiplication with ReLU.
     matmul_prim.execute(engine_stream, matmul_args);

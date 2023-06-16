@@ -1,7 +1,8 @@
 {
     "cmake.configureArgs": [
         "-DONEDNN_GPU_RUNTIME=SYCL",
-        "-DONEDNN_CPU_RUNTIME=SYCL"
+        "-DONEDNN_CPU_RUNTIME=SYCL",
+        "-DONEDNN_BUILD_GRAPH=OFF",
     ],
     "cmake.debugConfig": {"miDebuggerPath": "/usr/bin/gdb"}
 }

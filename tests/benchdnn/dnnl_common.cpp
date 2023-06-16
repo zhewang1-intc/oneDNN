@@ -378,7 +378,7 @@ int execute_and_wait(dnnl_primitive_t prim, const args_t &args, res_t *res) {
 void reset_gpu_profiling(dnnl_stream_t stream) {
 #if DNNL_GPU_RUNTIME == DNNL_RUNTIME_OCL \
         || DNNL_GPU_RUNTIME == DNNL_RUNTIME_SYCL
-    DNN_SAFE_V(dnnl_reset_profiling(stream));
+    // DNN_SAFE_V(dnnl_reset_profiling(stream));
 #endif
 }
 
@@ -400,15 +400,15 @@ void get_gpu_profiling_info(dnnl_stream_t stream, std::vector<uint64_t> &nsecs,
     time_kind = dnnl_profiling_data_kind_time;
 #endif
 
-    int num_entries = 0;
-    DNN_SAFE_V(dnnl_query_profiling_data(
-            stream, undef_kind, &num_entries, nullptr));
-    nsecs.resize(num_entries);
-    cycles.resize(num_entries);
-    DNN_SAFE_V(dnnl_query_profiling_data(
-            stream, time_kind, &num_entries, nsecs.data()));
-    DNN_SAFE_V(dnnl_query_profiling_data(
-            stream, cycles_kind, &num_entries, cycles.data()));
+    // int num_entries = 0;
+    // DNN_SAFE_V(dnnl_query_profiling_data(
+    //         stream, undef_kind, &num_entries, nullptr));
+    // nsecs.resize(num_entries);
+    // cycles.resize(num_entries);
+    // DNN_SAFE_V(dnnl_query_profiling_data(
+    //         stream, time_kind, &num_entries, nsecs.data()));
+    // DNN_SAFE_V(dnnl_query_profiling_data(
+    //         stream, cycles_kind, &num_entries, cycles.data()));
 #endif
 }
 

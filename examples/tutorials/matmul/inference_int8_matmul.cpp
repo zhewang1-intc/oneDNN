@@ -104,9 +104,9 @@ matmul::primitive_desc matmul_pd_create(
         int64_t K, int64_t N, const engine &eng) {
     const int64_t M = DNNL_RUNTIME_DIM_VAL;
 
-    memory::desc a_md({M, K}, memory::data_type::u8, {K, 1}); // M x K layout
-    memory::desc b_md({K, N}, memory::data_type::s8, memory::format_tag::any);
-    memory::desc c_md({M, N}, memory::data_type::u8, {N, 1}); // M x N layout
+    memory::desc a_md({3,M, K}, memory::data_type::u8, memory::format_tag::abc); // M x K layout
+    memory::desc b_md({3,K, N}, memory::data_type::s8, memory::format_tag::abc);
+    memory::desc c_md({3,M, N}, memory::data_type::u8, memory::format_tag::abc); // M x N layout
 
     // Create attributes and indicate that the alpha and zero points are
     // runtime parameters
